@@ -136,7 +136,7 @@ var _ = Context("config", func() {
 					{%- set block_example = "test" %}
 
 					{{ "The empty line should have been removed" }}
-					
+
 					The empty line above should stay
 				`),
 			})
@@ -309,7 +309,7 @@ var _ = Context("config", func() {
 					This has config line
 					{$ header $}
 					{% for l in lines %}
-					{$ l $}
+					{$ l $}{% if not loop.last %},{% endif %}
 					{% endfor %}`),
 			})
 			(*configuration).VariableStartString = "{$"
@@ -325,8 +325,8 @@ var _ = Context("config", func() {
 			expected := heredoc.Doc(`
 				This has config line
 				Header
-				line1
-				line2
+				line1,
+				line2,
 				line3
 			`)
 			AssertPrettyDiff(expected, *returnedResult)
