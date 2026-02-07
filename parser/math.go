@@ -71,14 +71,14 @@ func (p *Parser) ParseMathPrioritary() (nodes.Expression, error) {
 		"current": p.Current(),
 	}).Trace("ParseMathPrioritary")
 
-	expr, err := p.parseUnary()
+	expr, err := p.ParsePower()
 	if err != nil {
 		return nil, err
 	}
 
 	for p.Current(tokens.Multiply, tokens.Division, tokens.FloorDivision, tokens.Modulo) != nil {
 		op := BinOp(p.Pop())
-		right, err := p.parseUnary()
+		right, err := p.ParsePower()
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +102,7 @@ func (p *Parser) parseUnary() (nodes.Expression, error) {
 
 	sign := p.Match(tokens.Addition, tokens.Subtraction)
 
-	expr, err := p.ParsePower()
+	expr, err := p.ParseVariableOrLiteral()
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +113,11 @@ func (p *Parser) parseUnary() (nodes.Expression, error) {
 			Negative: sign.Val == "-",
 			Term:     expr,
 		}
+	}
+
+	expr, err = p.ParseFilterExpression(expr)
+	if err != nil {
+		return nil, err
 	}
 
 	log.WithFields(log.Fields{
@@ -130,14 +135,14 @@ func (p *Parser) ParsePower() (nodes.Expression, error) {
 		return nil, nil
 	}
 
-	expr, err := p.ParseVariableOrLiteral()
+	expr, err := p.parseUnary()
 	if err != nil {
 		return nil, err
 	}
 
 	for p.Current(tokens.Power) != nil {
 		op := BinOp(p.Pop())
-		right, err := p.ParseVariableOrLiteral()
+		right, err := p.parseUnary()
 		if err != nil {
 			return nil, err
 		}

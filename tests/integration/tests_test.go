@@ -97,4 +97,100 @@ var _ = Context("tests", func() {
 			"var1 in ['1', '2'] or var2 == '3': ok",
 		)
 	})
+	Context("https://github.com/NikolaLohinski/gonja/issues/30", func() {
+		shouldRender(
+			`{{ "a" < "b" }}`,
+			`True`,
+		)
+		shouldRender(
+			`{{ "b" > "a" }}`,
+			`True`,
+		)
+		shouldRender(
+			`{{ "a" > "b" }}`,
+			`False`,
+		)
+		shouldRender(
+			`{{ "a" == "b" }}`,
+			`False`,
+		)
+		shouldRender(
+			`{{ "a" == "a" }}`,
+			`True`,
+		)
+		shouldRender(
+			`{{ "b" >= "a" }}`,
+			`True`,
+		)
+		shouldRender(
+			`{{ "a" >= "b" }}`,
+			`False`,
+		)
+		shouldRender(
+			`{{ "b" <= "a" }}`,
+			`False`,
+		)
+		shouldRender(
+			`{{ "a" <= "b" }}`,
+			`True`,
+		)
+	})
+
+	Context("https://github.com/NikolaLohinski/gonja/issues/33", func() {
+		shouldRender(
+			`{% set prop = "foo" %}{% if 1==1 %}{% set prop = "bar" %}{% endif %}{{ prop }}`,
+			"bar",
+		)
+	})
+	Context("booleans", func() {
+		BeforeEach(func() {
+			*context = exec.NewContext(map[string]interface{}{
+				"var1": true,
+				"var2": false,
+			})
+		})
+		shouldRender(`{{ var1 is boolean() }}`, "True")
+		shouldRender(`{{ var1 is boolean }}`, "True")
+		shouldRender(`{{ var2 is boolean }}`, "True")
+		shouldRender(`{{ var1 is false() }}`, "False")
+		shouldRender(`{{ var1 is false }}`, "False")
+		shouldRender(`{{ var2 is false }}`, "True")
+		shouldRender(`{{ var1 is true }}`, "True")
+		shouldRender(`{{ var2 is true }}`, "False")
+	})
+	Context("numbers", func() {
+		BeforeEach(func() {
+			*context = exec.NewContext(map[string]interface{}{
+				"var1": 1.3,
+				"var2": "hello world!",
+				"var3": -42,
+			})
+		})
+		shouldRender(`{{ var1 is float() }}`, "True")
+		shouldRender(`{{ var1 is float }}`, "True")
+		shouldRender(`{{ var2 is float }}`, "False")
+		shouldRender(`{{ var3 is float }}`, "False")
+		shouldRender(`{{ var1 is integer() }}`, "False")
+		shouldRender(`{{ var2 is integer() }}`, "False")
+		shouldRender(`{{ var3 is integer() }}`, "True")
+	})
+	Context("https://github.com/NikolaLohinski/gonja/issues/63", func() {
+		BeforeEach(func() {
+			*context = exec.NewContext(map[string]interface{}{
+				"var1": uint64(42),
+			})
+		})
+		shouldRender("{{ var1 is eq 42 }}", "True")
+	})
+	Context("float to int equality", func() {
+		BeforeEach(func() {
+			*context = exec.NewContext(map[string]interface{}{
+				"foo": 42.0,
+			})
+		})
+		shouldRender("{{ foo is eq 42 }}", "True")
+		shouldRender("{{ 42.0 is eq 42 }}", "True")
+		shouldRender("{{ 42 is eq 42.0 }}", "True")
+		shouldRender("{{ 42.5 is eq 42 }}", "False")
+	})
 })

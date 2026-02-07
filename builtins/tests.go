@@ -1,6 +1,7 @@
 package builtins
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 
@@ -8,19 +9,25 @@ import (
 )
 
 var Tests = exec.NewTestSet(map[string]exec.TestFunction{
+	"boolean":     testBoolean,
 	"callable":    testCallable,
 	"defined":     testDefined,
 	"divisibleby": testDivisibleby,
 	"eq":          testEqual,
 	"equalto":     testEqual,
 	"==":          testEqual,
+	"escaped":     testEscaped,
 	"even":        testEven,
+	"false":       testFalse,
+	"filter":      testFilter,
+	"float":       testFloat,
 	"ge":          testGreaterEqual,
 	">=":          testGreaterEqual,
 	"gt":          testGreaterThan,
 	"greaterthan": testGreaterThan,
 	">":           testGreaterThan,
 	"in":          testIn,
+	"integer":     testInteger,
 	"iterable":    testIterable,
 	"le":          testLessEqual,
 	"<=":          testLessEqual,
@@ -37,19 +44,25 @@ var Tests = exec.NewTestSet(map[string]exec.TestFunction{
 	"sameas":      testSameas,
 	"sequence":    testSequence,
 	"string":      testString,
+	"test":        testTest,
+	"true":        testTrue,
 	"undefined":   testUndefined,
 	"upper":       testUpper,
 })
 
-func testCallable(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testBoolean(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	return in.IsBool(), nil
+}
+
+func testCallable(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsCallable(), nil
 }
 
-func testDefined(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testDefined(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return !(in.IsError() || in.IsNil()), nil
 }
 
-func testDivisibleby(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testDivisibleby(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.First()
 	if param.Integer() == 0 {
 		return false, nil
@@ -57,19 +70,27 @@ func testDivisibleby(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (b
 	return in.Integer()%param.Integer() == 0, nil
 }
 
-func testEqual(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testEqual(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.First()
-	return in.Interface() == param.Interface(), nil
+	return in.EqualValueTo(param), nil
 }
 
-func testEven(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testEven(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	if !in.IsInteger() {
 		return false, nil
 	}
 	return in.Integer()%2 == 0, nil
 }
 
-func testGreaterEqual(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testFalse(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	return !in.Bool(), nil
+}
+
+func testFloat(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	return in.IsFloat(), nil
+}
+
+func testGreaterEqual(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.Args[0]
 	if !in.IsNumber() || !param.IsNumber() {
 		return false, nil
@@ -77,10 +98,8 @@ func testGreaterEqual(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (
 	return in.Float() >= param.Float(), nil
 }
 
-func testGreaterThan(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
-	var (
-		to float64
-	)
+func testGreaterThan(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	var to float64
 	if err := params.Take(
 		exec.PositionalArgument("to", nil, exec.NumberArgument(&to)),
 	); err != nil {
@@ -90,20 +109,24 @@ func testGreaterThan(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (b
 	return in.Float() > to, nil
 }
 
-func testIn(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testIn(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	seq := params.First()
 	return seq.Contains(in), nil
 }
 
-func testIterable(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testInteger(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	return in.IsInteger(), nil
+}
+
+func testIterable(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsDict() || in.IsList() || in.IsString(), nil
 }
 
-func testSequence(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testSequence(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsList(), nil
 }
 
-func testLessEqual(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testLessEqual(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.Args[0]
 	if !in.IsNumber() || !param.IsNumber() {
 		return false, nil
@@ -111,14 +134,14 @@ func testLessEqual(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (boo
 	return in.Float() <= param.Float(), nil
 }
 
-func testLower(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testLower(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	if !in.IsString() {
 		return false, nil
 	}
 	return strings.ToLower(in.String()) == in.String(), nil
 }
 
-func testLessThan(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testLessThan(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.Args[0]
 	if !in.IsNumber() || !param.IsNumber() {
 		return false, nil
@@ -126,31 +149,31 @@ func testLessThan(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool
 	return in.Float() < param.Float(), nil
 }
 
-func testMapping(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testMapping(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsDict(), nil
 }
 
-func testNotEqual(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testNotEqual(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.Args[0]
 	return in.Interface() != param.Interface(), nil
 }
 
-func testNone(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testNone(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsNil(), nil
 }
 
-func testNumber(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testNumber(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsNumber(), nil
 }
 
-func testOdd(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testOdd(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	if !in.IsInteger() {
 		return false, nil
 	}
 	return in.Integer()%2 == 1, nil
 }
 
-func testSameas(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testSameas(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	param := params.Args[0]
 	if in.IsNil() && param.IsNil() {
 		return true, nil
@@ -160,8 +183,12 @@ func testSameas(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, 
 	return reflect.Indirect(param.Val) == reflect.Indirect(in.Val), nil
 }
 
-func testString(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testString(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	return in.IsString(), nil
+}
+
+func testTrue(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	return in.Bool(), nil
 }
 
 func testUndefined(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
@@ -169,9 +196,40 @@ func testUndefined(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (boo
 	return !defined, err
 }
 
-func testUpper(ctx *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
+func testUpper(_ *exec.Context, in *exec.Value, params *exec.VarArgs) (bool, error) {
 	if !in.IsString() {
 		return false, nil
 	}
 	return strings.ToUpper(in.String()) == in.String(), nil
+}
+
+func testEscaped(_ *exec.Evaluator, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	if in.IsError() {
+		return false, errors.New(in.Error())
+	}
+	if err := params.ExpectNothing(); err != nil {
+		return false, exec.ErrInvalidCall(err)
+	}
+	escaped := in.Escaped()
+	return escaped == in.String(), nil
+}
+
+func testTest(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	if in.IsError() {
+		return false, errors.New(in.Error())
+	}
+	if err := params.ExpectNothing(); err != nil {
+		return false, exec.ErrInvalidCall(err)
+	}
+	return e.Environment.Tests.Exists(in.String()), nil
+}
+
+func testFilter(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) (bool, error) {
+	if in.IsError() {
+		return false, errors.New(in.Error())
+	}
+	if err := params.ExpectNothing(); err != nil {
+		return false, exec.ErrInvalidCall(err)
+	}
+	return e.Environment.Filters.Exists(in.String()), nil
 }

@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/nikolalohinski/gonja/v2/config"
+	log "github.com/sirupsen/logrus"
 )
 
 // EOF is an arbitraty value for End Of File
@@ -283,6 +284,11 @@ func (l *Lexer) lexComment() lexFn {
 }
 
 func (l *Lexer) lexVariable() lexFn {
+	log.WithFields(log.Fields{
+		"pos":       l.Pos,
+		"input":     l.Input,
+		"remaining": l.remaining(),
+	}).Trace("Lexer.lexVariable")
 	l.Pos += len(l.Config.VariableStartString)
 	l.accept("-")
 	l.emit(VariableBegin)
@@ -329,6 +335,11 @@ func (l *Lexer) lexBlockEnd() lexFn {
 }
 
 func (l *Lexer) lexExpression() lexFn {
+	log.WithFields(log.Fields{
+		"pos":       l.Pos,
+		"input":     l.Input,
+		"remaining": l.remaining(),
+	}).Trace("lexExpression")
 	for {
 		if !l.expectDelimiter(l.peek()) {
 			if l.hasPrefix(l.Config.VariableEndString) {
@@ -341,7 +352,10 @@ func (l *Lexer) lexExpression() lexFn {
 		}
 
 		r := l.next()
+		log.WithFields(log.Fields{"rune": r}).Trace("lexExpression")
 		switch {
+		case isEOF(r):
+			return l.lexEOF
 		case isSpace(r):
 			return l.lexSpace
 		case isNumeric(r):
@@ -465,7 +479,7 @@ func (l *Lexer) lexExpression() lexFn {
 			l.emit(Or)
 		// not
 		case r == 'n' && l.accept("o"):
-			if !(l.accept("t") && isSpace(l.peek())) {
+			if !(l.accept("t") && (isSpace(l.peek()) || l.peek() == '(')) {
 				return l.lexIdentifier
 			}
 			l.emit(Not)
@@ -481,6 +495,16 @@ func (l *Lexer) lexSpace() lexFn {
 	}
 	l.emit(Whitespace)
 	return l.lexExpression
+}
+
+func (l *Lexer) lexEOF() lexFn {
+	if len(l.delimiters) > 0 {
+		last := len(l.delimiters) - 1
+		expected := l.delimiters[last]
+		l.errorf(`Unbalanced delimiters, expected "%c", got EOF`, expected)
+	}
+	l.emit(EOF)
+	return nil
 }
 
 func (l *Lexer) nextIdentifier() string {
@@ -562,4 +586,8 @@ func isAlphaNumeric(r rune) bool {
 
 func isNumeric(r rune) bool {
 	return unicode.IsDigit(r)
+}
+
+func isEOF(r rune) bool {
+	return r == rEOF
 }

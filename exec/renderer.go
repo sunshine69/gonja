@@ -21,7 +21,7 @@ type Renderer struct {
 	Output      io.Writer
 }
 
-// NewRenderer initialize a new renderer
+// NewRenderer initializes a new renderer
 func NewRenderer(environment *Environment, wr io.Writer, config *config.Config, loader loaders.Loader, template *Template) *Renderer {
 	r := &Renderer{
 		Config:      config.Inherit(),
@@ -61,8 +61,9 @@ func (r *Renderer) Visit(node nodes.Node) (nodes.Visitor, error) {
 		return nil, nil
 	case *nodes.Data:
 		output := n.Data.Val
-		if n.RemoveFirstLineReturn && (output[0:1] == "\n" || output[0:2] == "\r\n") {
-			output = output[1:]
+		if n.RemoveFirstLineReturn {
+			output = strings.TrimSuffix(output, "\n")
+			output = strings.TrimSuffix(output, "\r\n")
 		}
 		if n.Trim.Left {
 			output = strings.TrimLeft(output, " \r\n\t")
@@ -106,7 +107,6 @@ func (r *Renderer) Visit(node nodes.Node) (nodes.Visitor, error) {
 			_, err = io.WriteString(r.Output, value.Escaped())
 		} else {
 			_, err = io.WriteString(r.Output, value.String())
-
 		}
 		return nil, err
 	case *nodes.ControlStructureBlock:
@@ -125,6 +125,16 @@ func (r *Renderer) Visit(node nodes.Node) (nodes.Visitor, error) {
 // ExecuteWrapper wraps the nodes.Wrapper execution logic
 func (r *Renderer) ExecuteWrapper(wrapper *nodes.Wrapper) error {
 	return nodes.Walk(r.Inherit(), wrapper)
+}
+
+// ExecuteIfWrapper wraps the nodes.Wrapper execution logic and updates the parent context
+func (r *Renderer) ExecuteIfWrapper(wrapper *nodes.Wrapper) error {
+	sub := r.Inherit()
+	if err := nodes.Walk(sub, wrapper); err != nil {
+		return err
+	}
+	r.Environment.Context.Update(sub.Environment.Context)
+	return nil
 }
 
 func (r *Renderer) Execute() error {

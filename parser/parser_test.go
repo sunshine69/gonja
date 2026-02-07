@@ -316,9 +316,9 @@ var _ = Context("parser", func() {
 									),
 									tokens.Multiply,
 									MatchNodeBinaryExpression(
-										MatchUnaryExpression(
-											tokens.Subtraction,
-											MatchNodeBinaryExpression(
+										MatchNodeBinaryExpression(
+											MatchUnaryExpression(
+												tokens.Subtraction,
 												MatchUnaryExpression(
 													tokens.Subtraction,
 													MatchNodeBinaryExpression(
@@ -326,9 +326,10 @@ var _ = Context("parser", func() {
 														tokens.Subtraction,
 														MatchIntegerNode(100),
 													)),
-												tokens.Power,
-												MatchIntegerNode(2),
-											)),
+											),
+											tokens.Power,
+											MatchIntegerNode(2),
+										),
 										tokens.Power,
 										MatchIntegerNode(3),
 									),
@@ -677,6 +678,54 @@ var _ = Context("parser", func() {
 							MatchNodeBool(false),
 							MatchFilterCallNode("filter", nil, nil),
 						),
+					),
+				),
+			},
+		},
+		{
+			"is a logical expression after filter",
+			[]string{"{{ true | filter and false }}", "{{true|filter and false}}"},
+			[]types.GomegaMatcher{
+				MatchNodeOutput(
+					MatchNodeBinaryExpression(
+						MatchNodeFilteredExpressionNode(
+							MatchNodeBool(true),
+							MatchFilterCallNode("filter", nil, nil),
+						),
+						tokens.And,
+						MatchNodeBool(false),
+					),
+				),
+			},
+		},
+		{
+			"is arithmetic expression with a filter",
+			[]string{"{{ 1 + \"24\" | int }}", "{{1+\"24\"|int}}"},
+			[]types.GomegaMatcher{
+				MatchNodeOutput(
+					MatchNodeBinaryExpression(
+						MatchIntegerNode(1),
+						tokens.Addition,
+						MatchNodeFilteredExpressionNode(
+							MatchStringNode("24"),
+							MatchFilterCallNode("int", nil, nil),
+						),
+					),
+				),
+			},
+		},
+		{
+			"arithmetic operator after filter",
+			[]string{"{{ \"24\" | int + 1 }}", "{{\"24\"|int+1}}"},
+			[]types.GomegaMatcher{
+				MatchNodeOutput(
+					MatchNodeBinaryExpression(
+						MatchNodeFilteredExpressionNode(
+							MatchStringNode("24"),
+							MatchFilterCallNode("int", nil, nil),
+						),
+						tokens.Addition,
+						MatchIntegerNode(1),
 					),
 				),
 			},
